@@ -351,7 +351,7 @@ def download(base_model):
 
     # download clip
     clip_folder = "models/clip"
-    clip_l_path = os.path.join(clip_folder, "ViT-L-14-REG-TE-only-balanced-HF-format-ckpt12.safetensors.safetensors")
+    clip_l_path = os.path.join(clip_folder, "ViT-L-14-REG-TE-only-balanced-HF-format-ckpt12.safetensors")
     if not os.path.exists(clip_l_path):
         os.makedirs(clip_folder, exist_ok=True)
         gr.Info(f"Downloading clip...")
