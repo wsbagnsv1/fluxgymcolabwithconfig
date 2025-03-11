@@ -21,6 +21,7 @@ from argparse import Namespace
 import train_network
 import toml
 import re
+import json
 MAX_IMAGES = 150
 
 with open('models.yaml', 'r') as file:
@@ -801,6 +802,72 @@ def init_advanced():
             advanced_component_ids.append(component.elem_id)
     return advanced_components, advanced_component_ids
 
+def save_config_fn(base_model, lora_name, resolution, seed, workers, concept_sentence, learning_rate, network_dim, max_train_epochs, save_every_n_epochs, timestep_sampling, guidance_scale, vram, num_repeats, sample_prompts, sample_every_n_steps, *advanced):
+    # Create a dictionary with every configurable setting
+    config = {
+        "base_model": base_model,
+        "lora_name": lora_name,
+        "resolution": resolution,
+        "seed": seed,
+        "workers": workers,
+        "concept_sentence": concept_sentence,
+        "learning_rate": learning_rate,
+        "network_dim": network_dim,
+        "max_train_epochs": max_train_epochs,
+        "save_every_n_epochs": save_every_n_epochs,
+        "timestep_sampling": timestep_sampling,
+        "guidance_scale": guidance_scale,
+        "vram": vram,
+        "num_repeats": num_repeats,
+        "sample_prompts": sample_prompts,
+        "sample_every_n_steps": sample_every_n_steps,
+        "advanced": list(advanced)
+    }
+    # Write the settings to a JSON file
+    config_json = json.dumps(config, indent=2)
+    filename = "saved_config.json"
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(config_json)
+    return filename
+
+def load_config_fn(config_file):
+
+    if not config_file:
+        raise gr.Error("Uploaded config file is empty or invalid.")
+
+    try:
+        with open(config_file.name, 'r', encoding='utf-8') as f:
+            config_str = f.read()
+    except Exception as e:
+        raise gr.Error(f"Failed to read config file: {str(e)}")
+
+    if not config_str.strip():
+        raise gr.Error("Config file is empty.")
+    try:
+        config = json.loads(config_str)
+    except json.JSONDecodeError as e:
+         raise gr.Error(f"Invalid JSON in config file: {str(e)}")
+    advanced = config.get("advanced", [])
+    # Return the settings in the same order as defined by the listeners
+    return (
+      config.get("base_model", list(models.keys())[0]),
+      config.get("lora_name", ""),
+      config.get("resolution", 512),
+      config.get("seed", 42),
+      config.get("workers", 2),
+      config.get("concept_sentence", ""),
+      config.get("learning_rate", "8e-4"),
+      config.get("network_dim", 4),
+      config.get("max_train_epochs", 16),
+      config.get("save_every_n_epochs", 4),
+      config.get("timestep_sampling", "shift"),
+      config.get("guidance_scale", 1.0),
+      config.get("vram", "20G"),
+      config.get("num_repeats", 10),
+      config.get("sample_prompts", ""),
+      config.get("sample_every_n_steps", 0),
+      *advanced
+    )
 
 theme = gr.themes.Monochrome(
     text_size=gr.themes.Size(lg="18px", md="15px", sm="13px", xl="22px", xs="12px", xxl="24px", xxs="9px"),
@@ -1000,6 +1067,13 @@ with gr.Blocks(elem_id="app", theme=theme, css=css, fill_width=True) as demo:
                     advanced_components, advanced_component_ids = init_advanced()
             with gr.Row():
                 terminal = LogsView(label="Train log", elem_id="terminal")
+            # NEW UI ELEMENTS FOR CONFIG SAVE/LOAD
+            with gr.Row():
+                save_config_btn = gr.Button("Save Config")
+                load_config_btn = gr.Button("Load Config")
+            with gr.Row():
+                config_file = gr.File(label="Upload Config", file_types=["json"])
+                download_config = gr.File(label="Download Config", interactive=False)
             with gr.Row():
                 gallery = gr.Gallery(get_samples, inputs=[lora_name], label="Samples", every=10, columns=6)
 
@@ -1060,6 +1134,8 @@ with gr.Blocks(elem_id="app", theme=theme, css=css, fill_width=True) as demo:
     ]
     advanced_component_ids = [x.elem_id for x in advanced_components]
     original_advanced_component_values = [comp.value for comp in advanced_components]
+    save_config_btn.click(fn=save_config_fn, inputs=listeners, outputs=[download_config])
+    load_config_btn.click(fn=load_config_fn, inputs=[config_file], outputs=listeners)
     images.upload(
         load_captioning,
         inputs=[images, concept_sentence],
