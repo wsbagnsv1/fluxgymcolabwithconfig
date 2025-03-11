@@ -1192,4 +1192,6 @@ with gr.Blocks(elem_id="app", theme=theme, css=css, fill_width=True) as demo:
     refresh.click(update, inputs=listeners, outputs=[train_script, train_config, dataset_folder])
 if __name__ == "__main__":
     cwd = os.path.dirname(os.path.abspath(__file__))
-    demo.launch(debug=True, show_error=True, allowed_paths=[cwd], share=True)
+    local_url, share_url, _ = demo.launch(debug=True, show_error=True, allowed_paths=[cwd], share=True)
+    print("Local URL:", local_url)
+    print("Share URL:", share_url)
