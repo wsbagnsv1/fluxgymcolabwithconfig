@@ -351,19 +351,19 @@ def download(base_model):
 
     # download clip
     clip_folder = "models/clip"
-    clip_l_path = os.path.join(clip_folder, "clip_l.safetensors")
+    clip_l_path = os.path.join(clip_folder, "ViT-L-14-REG-TE-only-balanced-HF-format-ckpt12.safetensors.safetensors")
     if not os.path.exists(clip_l_path):
         os.makedirs(clip_folder, exist_ok=True)
         gr.Info(f"Downloading clip...")
-        print(f"download clip_l.safetensors")
-        hf_hub_download(repo_id="comfyanonymous/flux_text_encoders", local_dir=clip_folder, filename="clip_l.safetensors")
+        print(f"download ViT-L-14-REG-TE-only-balanced-HF-format-ckpt12.safetensors")
+        hf_hub_download(repo_id="zer0int/CLIP-Registers-Gated_MLP-ViT-L-14", local_dir=clip_folder, filename="ViT-L-14-REG-TE-only-balanced-HF-format-ckpt12.safetensors")
 
     # download t5xxl
-    t5xxl_path = os.path.join(clip_folder, "t5xxl_fp16.safetensors")
+    t5xxl_path = os.path.join(clip_folder, "t5xxl_fp8_e4m3fn_scaled.safetensors")
     if not os.path.exists(t5xxl_path):
-        print(f"download t5xxl_fp16.safetensors")
+        print(f"download t5xxl_fp8_e4m3fn_scaled.safetensors")
         gr.Info(f"Downloading t5xxl...")
-        hf_hub_download(repo_id="comfyanonymous/flux_text_encoders", local_dir=clip_folder, filename="t5xxl_fp16.safetensors")
+        hf_hub_download(repo_id="comfyanonymous/flux_text_encoders", local_dir=clip_folder, filename="t5xxl_fp8_e4m3fn_scaled.safetensors")
 
 
 def resolve_path(p):
@@ -416,13 +416,13 @@ def gen_sh(
 #    --optimizer_args "relative_step=False" "scale_parameter=False" "warmup_init=False" {line_break}
 #        --split_mode {line_break}
 #        --network_args "train_blocks=single" {line_break}
-#        --lr_scheduler constant_with_warmup {line_break}
+#        --lr_scheduler cosine {line_break}
 #        --max_grad_norm 0.0 {line_break}"""
     if vram == "16G":
         # 16G VRAM
         optimizer = f"""--optimizer_type adafactor {line_break}
   --optimizer_args "relative_step=False" "scale_parameter=False" "warmup_init=False" {line_break}
-  --lr_scheduler constant_with_warmup {line_break}
+  --lr_scheduler cosine {line_break}
   --max_grad_norm 0.0 {line_break}"""
     elif vram == "12G":
       # 12G VRAM
@@ -430,7 +430,7 @@ def gen_sh(
   --optimizer_args "relative_step=False" "scale_parameter=False" "warmup_init=False" {line_break}
   --split_mode {line_break}
   --network_args "train_blocks=single" {line_break}
-  --lr_scheduler constant_with_warmup {line_break}
+  --lr_scheduler cosine {line_break}
   --max_grad_norm 0.0 {line_break}"""
     else:
         # 20G+ VRAM
@@ -448,8 +448,8 @@ def gen_sh(
     model_path = os.path.join(model_folder, model_file)
     pretrained_model_path = resolve_path(model_path)
 
-    clip_path = resolve_path("models/clip/clip_l.safetensors")
-    t5_path = resolve_path("models/clip/t5xxl_fp16.safetensors")
+    clip_path = resolve_path("models/clip/ViT-L-14-REG-TE-only-balanced-HF-format-ckpt12.safetensors.safetensors")
+    t5_path = resolve_path("models/clip/t5xxl_fp8_e4m3fn_scaled.safetensors")
     ae_path = resolve_path("models/vae/ae.sft")
     sh = f"""accelerate launch {line_break}
   --mixed_precision bf16 {line_break}
@@ -1192,4 +1192,4 @@ with gr.Blocks(elem_id="app", theme=theme, css=css, fill_width=True) as demo:
     refresh.click(update, inputs=listeners, outputs=[train_script, train_config, dataset_folder])
 if __name__ == "__main__":
     cwd = os.path.dirname(os.path.abspath(__file__))
-    demo.launch(debug=True, show_error=True, allowed_paths=[cwd])
+    demo.launch(debug=True, show_error=True, allowed_paths=[cwd], share=True)
