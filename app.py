@@ -395,8 +395,8 @@ def gen_sh(
 
     print(f"gen_sh: network_dim:{network_dim}, max_train_epochs={max_train_epochs}, save_every_n_epochs={save_every_n_epochs}, timestep_sampling={timestep_sampling}, guidance_scale={guidance_scale}, vram={vram}, sample_prompts={sample_prompts}, sample_every_n_steps={sample_every_n_steps}")
 
-    output_dir = f"/content/drive/outputs/{output_name}"
-    sample_prompts_path = f"/content/drive/outputs/{output_name}/sample_prompts.txt"
+    output_dir = f"/content/drive/MyDrive/outputs/{output_name}"
+    sample_prompts_path = f"/content/drive/MyDrive/outputs/{output_name}/sample_prompts.txt"
 
     line_break = "\\"
     file_type = "sh"
@@ -448,7 +448,7 @@ def gen_sh(
     model_path = os.path.join(model_folder, model_file)
     pretrained_model_path = resolve_path(model_path)
     
-    clip_path = resolve_path("models/clip/ViT-L-14-REG-TE-only-balanced-HF-format-ckpt12.safetensors.safetensors")
+    clip_path = resolve_path("models/clip/ViT-L-14-REG-TE-only-balanced-HF-format-ckpt12.safetensors")
     t5_path = resolve_path("models/clip/t5xxl_fp8_e4m3fn_scaled.safetensors")
     ae_path = resolve_path("models/vae/ae.sft")
     sh = f"""accelerate launch {line_break}
