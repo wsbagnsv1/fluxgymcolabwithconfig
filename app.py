@@ -395,8 +395,8 @@ def gen_sh(
 
     print(f"gen_sh: network_dim:{network_dim}, max_train_epochs={max_train_epochs}, save_every_n_epochs={save_every_n_epochs}, timestep_sampling={timestep_sampling}, guidance_scale={guidance_scale}, vram={vram}, sample_prompts={sample_prompts}, sample_every_n_steps={sample_every_n_steps}")
 
-    output_dir = resolve_path(f"outputs/{output_name}")
-    sample_prompts_path = resolve_path(f"outputs/{output_name}/sample_prompts.txt")
+    output_dir = f"/content/drive/outputs/{output_name}"
+    sample_prompts_path = f"/content/drive/outputs/{output_name}/sample_prompts.txt"
 
     line_break = "\\"
     file_type = "sh"
