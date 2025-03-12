@@ -360,11 +360,11 @@ def download(base_model):
         hf_hub_download(repo_id="zer0int/CLIP-Registers-Gated_MLP-ViT-L-14", local_dir=clip_folder, filename="ViT-L-14-REG-TE-only-balanced-HF-format-ckpt12.safetensors")
 
     # download t5xxl
-    t5xxl_path = os.path.join(clip_folder, "t5xxl_fp8_e4m3fn_scaled.safetensors")
+    t5xxl_path = os.path.join(clip_folder, "t5xxl_fp8_e4m3fn.safetensors")
     if not os.path.exists(t5xxl_path):
-        print(f"download t5xxl_fp8_e4m3fn_scaled.safetensors")
+        print(f"download t5xxl_fp8_e4m3fn.safetensors")
         gr.Info(f"Downloading t5xxl...")
-        hf_hub_download(repo_id="comfyanonymous/flux_text_encoders", local_dir=clip_folder, filename="t5xxl_fp8_e4m3fn_scaled.safetensors")
+        hf_hub_download(repo_id="comfyanonymous/flux_text_encoders", local_dir=clip_folder, filename="t5xxl_fp8_e4m3fn.safetensors")
 
 def resolve_path(p):
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -449,7 +449,7 @@ def gen_sh(
     pretrained_model_path = resolve_path(model_path)
     
     clip_path = resolve_path("models/clip/ViT-L-14-REG-TE-only-balanced-HF-format-ckpt12.safetensors")
-    t5_path = resolve_path("models/clip/t5xxl_fp8_e4m3fn_scaled.safetensors")
+    t5_path = resolve_path("models/clip/t5xxl_fp8_e4m3fn.safetensors")
     ae_path = resolve_path("models/vae/ae.sft")
     sh = f"""accelerate launch {line_break}
   --mixed_precision bf16 {line_break}
