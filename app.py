@@ -1,5 +1,6 @@
 import os
 import sys
+import io
 os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
 os.environ['GRADIO_ANALYTICS_ENABLED'] = '0'
 sys.path.insert(0, os.getcwd())
@@ -22,6 +23,7 @@ import train_network
 import toml
 import re
 MAX_IMAGES = 150
+import json  # add near your other imports if not already present
 
 with open('models.yaml', 'r') as file:
     models = yaml.safe_load(file)
@@ -350,20 +352,19 @@ def download(base_model):
 
     # download clip
     clip_folder = "models/clip"
-    clip_l_path = os.path.join(clip_folder, "clip_l.safetensors")
+    clip_l_path = os.path.join(clip_folder, "ViT-L-14-REG-TE-only-balanced-HF-format-ckpt12.safetensors")
     if not os.path.exists(clip_l_path):
         os.makedirs(clip_folder, exist_ok=True)
         gr.Info(f"Downloading clip...")
-        print(f"download clip_l.safetensors")
-        hf_hub_download(repo_id="comfyanonymous/flux_text_encoders", local_dir=clip_folder, filename="clip_l.safetensors")
+        print(f"download ViT-L-14-REG-TE-only-balanced-HF-format-ckpt12.safetensors")
+        hf_hub_download(repo_id="zer0int/CLIP-Registers-Gated_MLP-ViT-L-14", local_dir=clip_folder, filename="ViT-L-14-REG-TE-only-balanced-HF-format-ckpt12.safetensors")
 
     # download t5xxl
-    t5xxl_path = os.path.join(clip_folder, "t5xxl_fp16.safetensors")
+    t5xxl_path = os.path.join(clip_folder, "t5xxl_fp8_e4m3fn_scaled.safetensors")
     if not os.path.exists(t5xxl_path):
-        print(f"download t5xxl_fp16.safetensors")
+        print(f"download t5xxl_fp8_e4m3fn_scaled.safetensors")
         gr.Info(f"Downloading t5xxl...")
-        hf_hub_download(repo_id="comfyanonymous/flux_text_encoders", local_dir=clip_folder, filename="t5xxl_fp16.safetensors")
-
+        hf_hub_download(repo_id="comfyanonymous/flux_text_encoders", local_dir=clip_folder, filename="t5xxl_fp8_e4m3fn_scaled.safetensors")
 
 def resolve_path(p):
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -421,7 +422,7 @@ def gen_sh(
         # 16G VRAM
         optimizer = f"""--optimizer_type adafactor {line_break}
   --optimizer_args "relative_step=False" "scale_parameter=False" "warmup_init=False" {line_break}
-  --lr_scheduler constant_with_warmup {line_break}
+  --lr_scheduler cosine {line_break}
   --max_grad_norm 0.0 {line_break}"""
     elif vram == "12G":
       # 12G VRAM
@@ -429,7 +430,7 @@ def gen_sh(
   --optimizer_args "relative_step=False" "scale_parameter=False" "warmup_init=False" {line_break}
   --split_mode {line_break}
   --network_args "train_blocks=single" {line_break}
-  --lr_scheduler constant_with_warmup {line_break}
+  --lr_scheduler cosine_with_restarts   {line_break}
   --max_grad_norm 0.0 {line_break}"""
     else:
         # 20G+ VRAM
@@ -446,9 +447,9 @@ def gen_sh(
         model_folder = f"models/unet/{repo}"
     model_path = os.path.join(model_folder, model_file)
     pretrained_model_path = resolve_path(model_path)
-
-    clip_path = resolve_path("models/clip/clip_l.safetensors")
-    t5_path = resolve_path("models/clip/t5xxl_fp16.safetensors")
+    
+    clip_path = resolve_path("models/clip/ViT-L-14-REG-TE-only-balanced-HF-format-ckpt12.safetensors.safetensors")
+    t5_path = resolve_path("models/clip/t5xxl_fp8_e4m3fn_scaled.safetensors")
     ae_path = resolve_path("models/vae/ae.sft")
     sh = f"""accelerate launch {line_break}
   --mixed_precision bf16 {line_break}
@@ -801,11 +802,97 @@ def init_advanced():
             advanced_component_ids.append(component.elem_id)
     return advanced_components, advanced_component_ids
 
+import io
+import base64
+import tempfile
+
+def save_config_fn(
+    base_model, lora_name, resolution, seed, workers, concept_sentence,
+    learning_rate, network_dim, max_train_epochs, save_every_n_epochs,
+    timestep_sampling, guidance_scale, vram, num_repeats, sample_prompts,
+    sample_every_n_steps, *advanced
+):
+    config = {
+        "base_model": base_model,
+        "lora_name": lora_name,
+        "resolution": resolution,
+        "seed": seed,
+        "workers": workers,
+        "concept_sentence": concept_sentence,
+        "learning_rate": learning_rate,
+        "network_dim": network_dim,
+        "max_train_epochs": max_train_epochs,
+        "save_every_n_epochs": save_every_n_epochs,
+        "timestep_sampling": timestep_sampling,
+        "guidance_scale": guidance_scale,
+        "vram": vram,
+        "num_repeats": num_repeats,
+        "sample_prompts": sample_prompts,
+        "sample_every_n_steps": sample_every_n_steps,
+        "advanced": list(advanced)
+    }
+    config_str = json.dumps(config, indent=2)
+    # Create a temporary file (it will persist until explicitly deleted)
+    tmp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+    tmp_file.write(config_str)
+    tmp_file.flush()
+    tmp_file.close()
+    # Return the file path
+    return tmp_file.name
+
+def load_config_fn(config_file_bytes):
+    # Handle empty input
+    if not config_file_bytes:
+        raise gr.Error("Uploaded config file is empty or invalid.")
+
+    try:
+        # Handle different file input types (bytes vs file-like object)
+        if isinstance(config_file_bytes, bytes):
+            # Direct bytes input
+            config_str = config_file_bytes.decode('utf-8')
+        else:
+            # File-like object (gradio sometimes returns this)
+            config_str = config_file_bytes.read().decode('utf-8')
+
+        # Validate JSON content
+        if not config_str.strip():
+            raise gr.Error("Config file is empty.")
+            
+        config = json.loads(config_str)
+    except UnicodeDecodeError:
+        raise gr.Error("Invalid file encoding - must be UTF-8")
+    except json.JSONDecodeError as e:
+        raise gr.Error(f"Invalid JSON format: {str(e)}")
+    except Exception as e:
+        raise gr.Error(f"Error loading config: {str(e)}")
+
+    # Extract values with fallbacks
+    return (
+        config.get("base_model", list(models.keys())[0]),
+        config.get("lora_name", ""),
+        config.get("resolution", 512),
+        config.get("seed", 42),
+        config.get("workers", 2),
+        config.get("concept_sentence", ""),
+        config.get("learning_rate", "8e-4"),
+        config.get("network_dim", 4),
+        config.get("max_train_epochs", 16),
+        config.get("save_every_n_epochs", 4),
+        config.get("timestep_sampling", "shift"),
+        config.get("guidance_scale", 1.0),
+        config.get("vram", "20G"),
+        config.get("num_repeats", 10),
+        config.get("sample_prompts", ""),
+        config.get("sample_every_n_steps", 0),
+        *config.get("advanced", [])
+    )
+
 
 theme = gr.themes.Monochrome(
     text_size=gr.themes.Size(lg="18px", md="15px", sm="13px", xl="22px", xs="12px", xxl="24px", xxs="9px"),
     font=[gr.themes.GoogleFont("Source Sans Pro"), "ui-sans-serif", "system-ui", "sans-serif"],
 )
+
 css = """
 @keyframes rotate {
     0% {
@@ -1000,6 +1087,42 @@ with gr.Blocks(elem_id="app", theme=theme, css=css, fill_width=True) as demo:
                     advanced_components, advanced_component_ids = init_advanced()
             with gr.Row():
                 terminal = LogsView(label="Train log", elem_id="terminal")
+            # NEW UI ELEMENTS FOR CONFIG SAVE/LOAD
+            
+            listeners = [
+                base_model,
+                lora_name,
+                resolution,
+                seed,
+                workers,
+                concept_sentence,
+                learning_rate,
+                network_dim,
+                max_train_epochs,
+                save_every_n_epochs,
+                timestep_sampling,
+                guidance_scale,
+                vram,
+                num_repeats,
+                sample_prompts,
+                sample_every_n_steps,
+                *advanced_components
+            ]
+            with gr.Row():
+                save_config_btn = gr.Button("Save Config")
+                load_config_btn = gr.Button("Load Config")
+            with gr.Row():
+                config_file = gr.File(
+                    label="Upload Config", 
+                    file_types=[".json"],
+                    type="binary"  # Get file contents as bytes
+                )
+
+                download_config = gr.DownloadButton("Download Config", visible=True)
+
+                save_config_btn.click(fn=save_config_fn, inputs=listeners, outputs=download_config)
+
+                load_config_btn.click(fn=load_config_fn, inputs=[config_file], outputs=listeners)
             with gr.Row():
                 gallery = gr.Gallery(get_samples, inputs=[lora_name], label="Samples", every=10, columns=6)
 
@@ -1116,4 +1239,4 @@ with gr.Blocks(elem_id="app", theme=theme, css=css, fill_width=True) as demo:
     refresh.click(update, inputs=listeners, outputs=[train_script, train_config, dataset_folder])
 if __name__ == "__main__":
     cwd = os.path.dirname(os.path.abspath(__file__))
-    demo.launch(debug=True, show_error=True, allowed_paths=[cwd])
+    demo.launch(debug=True, show_error=True, allowed_paths=[cwd],share=True)
